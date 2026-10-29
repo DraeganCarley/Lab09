@@ -1,13 +1,178 @@
 top.v
+module top(
+    input [15:0] sw,
+    input btnC,
+    output [15:0] led
+);
+
+    d_latch part1(
+        .D(sw[0]),
+        .E(btnC),
+        .Q(led[0]),
+        .NotQ(led[1])
+    );
+
+    memory_system part2(
+        .data(sw[15:8]),
+        .store(btnC),
+        .addr(sw[7:6]),
+        .memory(led[15:8])
+    );
+
+endmodule
 
 d_latch.v
+module d_latch(
+    input D, E,
+    output reg Q,
+    output NotQ
+);
+
+always @(*) begin
+    if (E)
+        Q <= D;
+end
+
+assign NotQ = ~Q;
+
+endmodule
+
 
 byte_memory.v
+module byte_memory(
+    input [7:0] data,
+    input store,
+    output reg [7:0] memory
+);
+
+    always @(*) begin
+        if (store)
+            memory <= data;
+    end
+
+endmodule
 
 memory_system.v
+module memory_system(
+    input [7:0] data,
+    input store,
+    input [1:0] addr,
+    output [7:0] memory
+);
+
+    wire [7:0] dataA, dataB, dataC, dataD;
+
+    wire storeA, storeB, storeC, storeD;
+    
+    wire [7:0] memA, memB, memC, memD;
+
+    demultiplexer data_demux(
+        .data(data),
+        .sel(addr),
+        .A(dataA),
+        .B(dataB),
+        .C(dataC),
+        .D(dataD)
+    );
+
+    store_demux enable_demux(
+        .store(store),
+        .sel(addr),
+        .A(storeA),
+        .B(storeB),
+        .C(storeC),
+        .D(storeD)
+    );
+
+    byte_memory byte0(
+        .data(dataA),
+        .store(storeA),
+        .memory(memA)
+    );
+
+    byte_memory byte1(
+        .data(dataB),
+        .store(storeB),
+        .memory(memB)
+    );
+
+    byte_memory byte2(
+        .data(dataC),
+        .store(storeC),
+        .memory(memC)
+    );
+
+    byte_memory byte3(
+        .data(dataD),
+        .store(storeD),
+        .memory(memD)
+    );
+
+    multiplexer output_mux(
+        .A(memA),
+        .B(memB),
+        .C(memC),
+        .D(memD),
+        .sel(addr),
+        .Y(memory)
+    );
+
+endmodule
 
 demultiplexer.v
+module demultiplexer(
+    input [7:0] data,
+    input [1:0] sel,
+    output reg [7:0] A,
+    output reg [7:0] B,
+    output reg [7:0] C,
+    output reg [7:0] D
+);
+
+    always @(*) begin
+        case(sel)
+            2'b00: {D, C, B, A} = {24'b0, data};
+            2'b01: {D, C, B, A} = {16'b0, data, 8'b0};
+            2'b10: {D, C, B, A} = {8'b0, data, 16'b0};
+            2'b11: {D, C, B, A} = {data, 24'b0};
+        endcase
+    end
+
+endmodule
 
 store_demux.v
+module store_demux(
+    input store,
+    input [1:0] sel,
+    output reg A, B, C, D
+);
+
+    always @(*) begin
+        case(sel)
+            2'b00: {D, C, B, A} = {3'b000, store};
+            2'b01: {D, C, B, A} = {2'b00, store, 1'b0};
+            2'b10: {D, C, B, A} = {1'b0, store, 2'b00};
+            2'b11: {D, C, B, A} = {store, 3'b000};
+        endcase
+    end
+
+endmodule
 
 multiplexer.v
+module multiplexer(
+    input [7:0] A, B, C, D,
+    input [1:0] sel,
+    output reg [7:0] Y
+);
+
+    always @(*) begin
+        case(sel)
+            2'b00: Y = A;
+            2'b01: Y = B;
+            2'b10: Y = C;
+            2'b11: Y = D;
+            default: Y = 8'b00000000;
+        endcase
+    end
+
+endmodule
